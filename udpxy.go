@@ -1,6 +1,7 @@
 package udxy
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -45,24 +46,35 @@ func (Udpxy) CaddyModule() caddy.ModuleInfo {
 }
 
 func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
-	m := new(Udpxy)
-	err := m.UnmarshalCaddyfile(h.Dispenser)
+	u := new(Udpxy)
+	err := u.UnmarshalCaddyfile(h.Dispenser)
 	if err != nil {
 		return nil, err
 	}
-
-	return m, nil
+	return u, nil
 }
 
 func (u *Udpxy) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 	for d.Next() {
-		if !d.Args(&u.InterfaceName) {
+		if d.NextArg() {
 			return d.ArgErr()
 		}
-		if !d.Args(&u.Timeout) {
-			return d.ArgErr()
+		for nesting := d.Nesting(); d.NextBlock(nesting); {
+			switch d.Val() {
+			case "interface":
+				if d.NextArg() {
+					u.InterfaceName = d.Val()
+				}
+			case "timeout":
+				if d.NextArg() {
+					u.Timeout = d.Val()
+				}
+			}
+
 		}
 	}
+	fmt.Println("dd")
+	fmt.Println(u.InterfaceName)
 	return nil
 }
 
@@ -136,6 +148,13 @@ func (u *Udpxy) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp
 	return next.ServeHTTP(w, r)
 }
 
+func (u *Udpxy) Validate() error {
+	if u.inteface == nil {
+		return fmt.Errorf("no interface")
+	}
+	return nil
+}
+
 func (u *Udpxy) Provision(ctx caddy.Context) error {
 	inf, err := net.InterfaceByName(u.InterfaceName)
 	if err != nil {
@@ -153,6 +172,7 @@ func (u *Udpxy) Provision(ctx caddy.Context) error {
 // Interface guards
 var (
 	_ caddy.Provisioner           = (*Udpxy)(nil)
+	_ caddy.Validator             = (*Udpxy)(nil)
 	_ caddyhttp.MiddlewareHandler = (*Udpxy)(nil)
 	_ caddyfile.Unmarshaler       = (*Udpxy)(nil)
 )
