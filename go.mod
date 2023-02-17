@@ -1,4 +1,4 @@
-module udpxy
+module github.com/lostz/udpxy
 
 go 1.19
 
